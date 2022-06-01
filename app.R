@@ -109,7 +109,7 @@ server <- function(input, output, session) {
 # Just copy and paste them into your console
 
 # Run the application 
-shinyApp(ui = ui, server = server)
+#shinyApp(ui = ui, server = server)
 
 # Deploy app
 #deployApp(appName = "doublecheckR", account="jrcalabrese")
