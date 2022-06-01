@@ -54,6 +54,15 @@ server <- function(input, output, session) {
       mutate(ClockStop = format(ymd_hms(ClockStop), "%H:%M:%S")) %>%
       mutate(ClockStart = format(ymd_hms(ClockStart), "%H:%M:%S"))
   })
+  
+  name_of_file <- reactive({
+    inFile <- input$file1
+    x <- inFile$name
+    x <- substr(x, 1, 5)
+    x <- paste(x, "_Checked.csv", sep = "")
+    return(x)
+    
+  })
 
   vals <- reactiveValues(x = NULL)
   
@@ -88,7 +97,7 @@ server <- function(input, output, session) {
     replaceData(proxy, vals$x$x$data, resetPaging = FALSE, rownames = FALSE)
   })
   
-  output$download <- downloadHandler("example.csv", 
+  output$download <- downloadHandler(name_of_file, #"example.csv", 
                                      content = function(file){
                                        write.csv(vals$x$x$data, file, row.names = F)
                                      },
@@ -100,7 +109,7 @@ server <- function(input, output, session) {
 # Just copy and paste them into your console
 
 # Run the application 
-#shinyApp(ui = ui, server = server)
+shinyApp(ui = ui, server = server)
 
 # Deploy app
 #deployApp(appName = "doublecheckR", account="jrcalabrese")
