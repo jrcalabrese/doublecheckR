@@ -2,10 +2,11 @@ library(shiny)
 library(shinythemes)
 library(data.table)
 library(DT)
-library(tidyverse)
+library(qpcR)
 library(readxl)
 library(lubridate)
 library(rsconnect)
+library(tidyverse)
 
 ui <- navbarPage("doublecheckR by @jrosecalabrese", 
                   theme = shinytheme("flatly"), 
@@ -36,23 +37,44 @@ ui <- navbarPage("doublecheckR by @jrosecalabrese",
 )
 
 server <- function(input, output, session) {
+
+  good_size <- reactive({   
+    inFile1 <- input$file1
+    if (is.null(input$file1)) return(NULL)
+    here1 <- readxl::read_excel(inFile1$datapath) %>% 
+      select(Period:ObjEng) %>% filter(ObjEng!=88) %>%
+      mutate(ClockStop = format(ymd_hms(ClockStop), "%H:%M:%S")) %>%
+      mutate(ClockStart = format(ymd_hms(ClockStart), "%H:%M:%S")) %>% nrow()
+    
+    inFile2 <- input$file2
+    if (is.null(input$file2)) return(NULL)
+    here2 <- readxl::read_excel(inFile2$datapath) %>% dplyr::select(Period:ObjEng) %>% filter(ObjEng!=88) %>%
+      mutate(ClockStop = format(ymd_hms(ClockStop), "%H:%M:%S")) %>%
+      mutate(ClockStart = format(ymd_hms(ClockStart), "%H:%M:%S")) %>% nrow()
+    
+    good_size <- if_else(here1 < here2, here1, here2)
+    return(good_size)
+  })
   
   df1 <- reactive({
+    req(good_size())
     inFile <- input$file1
     if (is.null(input$file1))
       return(NULL)
-    readxl::read_excel(inFile$datapath) %>% select(Period:ObjEng) %>% filter(ObjEng!=88) %>%
+    readxl::read_excel(inFile$datapath) %>% dplyr::select(Period:ObjEng) %>% filter(ObjEng!=88) %>%
       mutate(ClockStop = format(ymd_hms(ClockStop), "%H:%M:%S")) %>%
-      mutate(ClockStart = format(ymd_hms(ClockStart), "%H:%M:%S"))
+      mutate(ClockStart = format(ymd_hms(ClockStart), "%H:%M:%S")) %>% head(good_size())
   })
   
   df2 <- reactive({
+    req(good_size())
     inFile <- input$file2
     if (is.null(input$file2)) 
       return(NULL) 
-    readxl::read_excel(inFile$datapath) %>% select(Period:ObjEng) %>% filter(ObjEng!=88) %>%
+    readxl::read_excel(inFile$datapath) %>% 
+      select(Period:ObjEng) %>% filter(ObjEng!=88) %>%
       mutate(ClockStop = format(ymd_hms(ClockStop), "%H:%M:%S")) %>%
-      mutate(ClockStart = format(ymd_hms(ClockStart), "%H:%M:%S"))
+      mutate(ClockStart = format(ymd_hms(ClockStart), "%H:%M:%S")) %>% head(good_size())
   })
   
   name_of_file <- reactive({
@@ -63,16 +85,17 @@ server <- function(input, output, session) {
     return(x)
     
   })
-
+  
   vals <- reactiveValues(x = NULL)
   
   observe({
 
     req(df1())
     req(df2())
-    
+
     tbl_diffs <- which(df1() != df2(), arr.ind = TRUE)
-    tbl_compare <- df2() %>% DT::datatable(selection = 'none', rownames = FALSE, edit = TRUE)
+    tbl_compare <- df2() %>% DT::datatable(selection = 'none', rownames = FALSE, edit = TRUE,
+                                           options = list(dom = 'ft', pageLength = 10000)) # this is what keeps page length good! no more snapping! 
     for (i in seq_len(nrow(tbl_diffs))) {
       tbl_compare <- tbl_compare %>%
         formatStyle(
@@ -83,6 +106,7 @@ server <- function(input, output, session) {
   })
   
   output$print <- DT::renderDT({ vals$x })
+  #output$print <- DT::renderDT( vals$x )
   output$contents <- DT::renderDataTable(vals$x)
 
   proxy <- dataTableProxy("contents")
@@ -109,7 +133,7 @@ server <- function(input, output, session) {
 # Just copy and paste them into your console
 
 # Run the application 
-#shinyApp(ui = ui, server = server)
+shinyApp(ui = ui, server = server)
 
 # Deploy app
 #deployApp(appName = "doublecheckR", account="jrcalabrese")
